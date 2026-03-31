@@ -1,0 +1,21 @@
+{
+  "name": "PanzerQuest 8x",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "20" }
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb"
+  },
+  "forwardPorts": [6080, 8080],
+  "portsAttributes": {
+    "6080": { "label": "Display (noVNC)", "onAutoForward": "silent" },
+    "8080": { "label": "Broadcast Panel", "onAutoForward": "openBrowser" }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "bash start.sh",
+  "remoteEnv": {
+    "DISPLAY": ":0"
+  }
+}
