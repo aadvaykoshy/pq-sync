@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PanzerQuest — 8x Command</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;700&display=swap');
+
+  :root {
+    --green:    #39ff6a;
+    --dimgreen: #1a7a35;
+    --red:      #ff3b3b;
+    --amber:    #ffb800;
+    --bg:       #050a06;
+    --panel:    #080f09;
+    --border:   #143318;
+    --text:     #c8e8cb;
+    --muted:    #4a6b4d;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 24px, rgba(57,255,106,0.025) 24px, rgba(57,255,106,0.025) 25px),
+      repeating-linear-gradient(90deg, transparent, transparent 24px, rgba(57,255,106,0.015) 24px, rgba(57,255,106,0.015) 25px);
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+  .logo {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 3px;
+    color: var(--green);
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--muted); font-weight: 500; }
+
+  #conn-status { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--muted); }
+  #conn-dot { width:8px; height:8px; border-radius:50%; background:var(--red); box-shadow:0 0 6px var(--red); transition:all .3s; }
+  #conn-dot.ok { background:var(--green); box-shadow:0 0 8px var(--green); }
+
+  /* ── Main layout: left sidebar | centre input | right stats ── */
+  .main {
+    display: grid;
+    grid-template-columns: 200px 1fr 190px;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+  }
+  .sidebar-right {
+    border-left: 1px solid var(--border);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+
+  .ptitle {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 5px;
+  }
+
+  /* ── Broadcast button ── */
+  #bcast-btn {
+    width: 100%;
+    padding: 13px;
+    border: 1px solid var(--dimgreen);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all .2s;
+  }
+  #bcast-btn.on {
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: 0 0 20px rgba(57,255,106,.2), inset 0 0 14px rgba(57,255,106,.06);
+    animation: glow 2s infinite;
+  }
+  #bcast-btn:hover { border-color:var(--green); color:var(--green); }
+  @keyframes glow {
+    0%,100% { box-shadow:0 0 20px rgba(57,255,106,.2),inset 0 0 14px rgba(57,255,106,.06); }
+    50%      { box-shadow:0 0 32px rgba(57,255,106,.4),inset 0 0 20px rgba(57,255,106,.10); }
+  }
+  #bcast-sub { font-size:10px; text-align:center; color:var(--muted); letter-spacing:1px; line-height:1.7; }
+
+  /* ── Quick keys ── */
+  .qk { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+  .qk-btn {
+    padding:7px 4px;
+    background:transparent;
+    border:1px solid var(--border);
+    border-radius:3px;
+    color:var(--muted);
+    font-family:'Share Tech Mono',monospace;
+    font-size:11px;
+    cursor:pointer;
+    transition:all .15s;
+    letter-spacing:1px;
+  }
+  .qk-btn:hover { border-color:var(--amber); color:var(--amber); }
+  .qk-btn:active { background:rgba(255,184,0,.07); transform:scale(.97); }
+
+  .novnc-link {
+    display:block; padding:9px; border:1px solid var(--border); border-radius:3px;
+    text-align:center; color:var(--muted); text-decoration:none; font-size:11px;
+    letter-spacing:1px; transition:all .2s; margin-top:auto;
+  }
+  .novnc-link:hover { border-color:var(--green); color:var(--green); }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     THE INPUT ZONE — takes up the entire centre column.
+     This is what gets focused. Mouse + keyboard happen here.
+     ───────────────────────────────────────────────────────────────────────── */
+  .centre {
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    gap: 10px;
+    min-height: 0;
+  }
+
+  #capture-zone {
+    flex: 1;
+    min-height: 0;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    cursor: crosshair;
+    outline: none;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: border-color .2s, box-shadow .2s;
+    /* Prevent any touch scroll interference */
+    touch-action: none;
+  }
+
+  /* Unfocused state */
+  #capture-zone .cz-idle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+    transition: opacity .2s;
+  }
+  #capture-zone .cz-icon { font-size:32px; opacity:.3; }
+  #capture-zone .cz-title {
+    font-family:'Rajdhani',sans-serif; font-weight:700;
+    font-size:16px; letter-spacing:3px; color:var(--muted);
+  }
+  #capture-zone .cz-hint { font-size:10px; color:var(--muted); letter-spacing:1px; text-align:center; line-height:2; }
+
+  /* Active (focused + broadcast on) */
+  #capture-zone.active {
+    border-color: var(--green);
+    border-style: solid;
+    box-shadow: inset 0 0 40px rgba(57,255,106,.04), 0 0 20px rgba(57,255,106,.08);
+  }
+  #capture-zone.active .cz-idle { opacity: 0; }
+
+  /* Live input display — shown when active */
+  #input-display {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    opacity: 0;
+    transition: opacity .2s;
+    pointer-events: none;
+  }
+  #capture-zone.active #input-display { opacity: 1; }
+
+  #last-key-display {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 48px;
+    color: var(--green);
+    letter-spacing: 4px;
+    min-height: 56px;
+    text-shadow: 0 0 20px rgba(57,255,106,.5);
+    text-align: center;
+  }
+  #mouse-pos-display {
+    font-size: 11px;
+    color: var(--dimgreen);
+    letter-spacing: 2px;
+  }
+  #active-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--dimgreen);
+    text-transform: uppercase;
+  }
+
+  /* Ripple canvas - absolutely fills the zone */
+  #ripple-canvas {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  /* Cursor dot that follows mouse inside zone */
+  #cursor-dot {
+    position: absolute;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity .1s;
+  }
+  #capture-zone.active #cursor-dot { opacity: 0.7; }
+
+  /* ── Log ── */
+  #log {
+    font-size:11px; color:var(--muted);
+    height: 100px; overflow-y:auto; flex-shrink: 0;
+    border:1px solid var(--border); border-radius:3px;
+    padding:7px; display:flex; flex-direction:column-reverse; gap:1px;
+  }
+  .le { line-height:1.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .le .t { color:var(--dimgreen); margin-right:6px; }
+  .le.ok  .m { color:var(--green); }
+  .le.warn .m { color:var(--amber); }
+
+  /* ── Stats ── */
+  .stat { display:flex; justify-content:space-between; align-items:baseline; padding:5px 0; border-bottom:1px solid var(--border); }
+  .stat:last-child { border-bottom:none; }
+  .sl { color:var(--muted); font-size:10px; letter-spacing:1px; }
+  .sv { color:var(--green); font-family:'Rajdhani',sans-serif; font-weight:700; font-size:17px; }
+  .sv.warn { color:var(--amber); }
+
+  /* ── Instance grid in right sidebar ── */
+  .inst-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+  .inst-card {
+    border:1px solid var(--border); border-radius:3px;
+    padding:7px 6px; background:var(--panel); position:relative;
+    transition:border-color .2s;
+  }
+  .inst-card.alive { border-color:var(--dimgreen); }
+  .inst-id { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:14px; color:var(--green); }
+  .inst-dot { position:absolute; top:6px; right:6px; width:5px; height:5px; border-radius:50%; background:var(--red); }
+  .inst-card.alive .inst-dot { background:var(--green); box-shadow:0 0 4px var(--green); }
+
+  ::-webkit-scrollbar { width:3px; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Panzer<span>Quest</span> · 8× Command</div>
+  <div id="conn-status">
+    <div id="conn-dot"></div>
+    <span id="conn-text">CONNECTING...</span>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- LEFT SIDEBAR -->
+  <div class="sidebar">
+    <div class="ptitle">Broadcast</div>
+
+    <button id="bcast-btn" onclick="toggleBroadcast()">[ BROADCAST  OFF ]</button>
+    <div id="bcast-sub">Click to activate,<br>then click inside the zone</div>
+
+    <div class="ptitle">Quick Keys</div>
+    <div class="qk">
+      <button class="qk-btn" onclick="fireKey('Escape')">ESC</button>
+      <button class="qk-btn" onclick="fireKey('Return')">ENTER</button>
+      <button class="qk-btn" onclick="fireKey('space')">SPACE</button>
+      <button class="qk-btn" onclick="fireKey('Tab')">TAB</button>
+      <button class="qk-btn" onclick="fireKey('Up')">↑</button>
+      <button class="qk-btn" onclick="fireKey('Down')">↓</button>
+      <button class="qk-btn" onclick="fireKey('Left')">←</button>
+      <button class="qk-btn" onclick="fireKey('Right')">→</button>
+      <button class="qk-btn" onclick="fireKey('1')">1</button>
+      <button class="qk-btn" onclick="fireKey('2')">2</button>
+      <button class="qk-btn" onclick="fireKey('3')">3</button>
+      <button class="qk-btn" onclick="fireKey('4')">4</button>
+    </div>
+
+    <a class="novnc-link" id="novnc-link" href="#" target="_blank">📺 Full Display (noVNC)</a>
+  </div>
+
+  <!-- CENTRE — the input zone -->
+  <div class="centre">
+    <div class="ptitle" id="zone-title">Input Zone — Click to Focus</div>
+
+    <div id="capture-zone" tabindex="0">
+      <canvas id="ripple-canvas"></canvas>
+      <div id="cursor-dot"></div>
+
+      <!-- shown when not focused / broadcast off -->
+      <div class="cz-idle">
+        <span class="cz-icon">🎮</span>
+        <span class="cz-title">INPUT ZONE</span>
+        <span class="cz-hint">
+          Enable broadcast, then click here.<br>
+          Your mouse &amp; keyboard mirror to<br>
+          all 8 windows simultaneously.
+        </span>
+      </div>
+
+      <!-- shown when active -->
+      <div id="input-display">
+        <div id="active-label">● BROADCASTING</div>
+        <div id="last-key-display"></div>
+        <div id="mouse-pos-display">–</div>
+      </div>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+  <!-- RIGHT SIDEBAR -->
+  <div class="sidebar-right">
+    <div class="ptitle">Instances</div>
+    <div class="inst-grid" id="inst-grid"></div>
+
+    <div class="ptitle" style="margin-top:4px">Stats</div>
+    <div class="stat"><span class="sl">WINDOWS</span><span class="sv" id="s-wins">–</span></div>
+    <div class="stat"><span class="sl">EVENTS</span><span class="sv" id="s-ev">0</span></div>
+    <div class="stat"><span class="sl">BROADCAST</span><span class="sv" id="s-bc">OFF</span></div>
+    <div class="stat"><span class="sl">WS</span><span class="sv" id="s-ws">–</span></div>
+
+    <div class="ptitle" style="margin-top:4px">Info</div>
+    <div style="color:var(--muted);font-size:10px;line-height:2">
+      PORT 8080 = this panel<br>
+      PORT 6080 = noVNC view<br>
+      <br>
+      Mouse moves at ~60fps.<br>
+      Keydown+up both sent.<br>
+      Modifiers (Ctrl/Shift)<br>
+      fully supported.
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════════════════════════
+let ws           = null;
+let broadcasting = false;
+let evCount      = 0;
+const mods       = { ctrlKey:false, shiftKey:false, altKey:false, metaKey:false };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Instance cards
+// ═══════════════════════════════════════════════════════════════════════════════
+const grid = document.getElementById('inst-grid');
+for (let i = 0; i < 8; i++) {
+  grid.innerHTML += `<div class="inst-card" id="ic${i}">
+    <div class="inst-id">#${i+1}</div>
+    <div class="inst-dot"></div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// noVNC link
+// ═══════════════════════════════════════════════════════════════════════════════
+document.getElementById('novnc-link').href =
+  `http://${location.hostname}:6080/vnc.html?autoconnect=true&resize=scale`;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WebSocket
+// ═══════════════════════════════════════════════════════════════════════════════
+function connect() {
+  ws = new WebSocket(`ws://${location.hostname}:8080`);
+  ws.onopen    = () => { setConn(true);  addLog('Connected', 'ok'); ping(); };
+  ws.onclose   = () => { setConn(false); addLog('Lost connection — retrying...', 'warn'); setTimeout(connect, 3000); };
+  ws.onerror   = () => addLog('WS error', 'warn');
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.windows != null) updateWins(msg.windows);
+  };
+}
+
+function send(data) {
+  if (!ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify(data));
+  evCount++;
+  document.getElementById('s-ev').textContent = evCount;
+}
+
+let pingTimer;
+function ping() {
+  send({ type:'ping' });
+  clearTimeout(pingTimer);
+  pingTimer = setTimeout(ping, 5000);
+}
+
+function setConn(ok) {
+  document.getElementById('conn-dot').className = ok ? 'ok' : '';
+  document.getElementById('conn-text').textContent = ok ? 'CONNECTED' : 'OFFLINE';
+  document.getElementById('s-ws').textContent = ok ? 'UP' : 'DOWN';
+  document.getElementById('s-ws').className = `sv ${ok ? '' : 'warn'}`;
+}
+
+function updateWins(n) {
+  document.getElementById('s-wins').textContent = n;
+  document.getElementById('s-wins').className = `sv ${n < 8 ? 'warn' : ''}`;
+  for (let i = 0; i < 8; i++) {
+    const el = document.getElementById(`ic${i}`);
+    if (el) el.className = `inst-card ${i < n ? 'alive' : ''}`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Broadcast toggle
+// ═══════════════════════════════════════════════════════════════════════════════
+function toggleBroadcast() {
+  broadcasting = !broadcasting;
+  const btn = document.getElementById('bcast-btn');
+  btn.textContent = broadcasting ? '[ BROADCAST   ON ]' : '[ BROADCAST  OFF ]';
+  btn.className   = broadcasting ? 'on' : '';
+  document.getElementById('bcast-sub').textContent =
+    broadcasting ? 'Click the input zone to start' : 'Click to activate';
+  document.getElementById('s-bc').textContent = broadcasting ? 'ON' : 'OFF';
+  addLog(`Broadcast ${broadcasting ? 'ENABLED' : 'DISABLED'}`, broadcasting ? 'ok' : '');
+  if (broadcasting) zone.focus();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Capture Zone
+// ═══════════════════════════════════════════════════════════════════════════════
+const zone       = document.getElementById('capture-zone');
+const lastKeyEl  = document.getElementById('last-key-display');
+const mousePosEl = document.getElementById('mouse-pos-display');
+const cursorDot  = document.getElementById('cursor-dot');
+const zoneTitle  = document.getElementById('zone-title');
+let   keyFadeTimer;
+
+function setZoneActive(on) {
+  zone.classList.toggle('active', on);
+  zoneTitle.textContent = on
+    ? 'Input Zone — Broadcasting ●'
+    : 'Input Zone — Click to Focus';
+}
+
+zone.addEventListener('focus', () => {
+  if (broadcasting) setZoneActive(true);
+});
+zone.addEventListener('blur', () => {
+  setZoneActive(false);
+  // Release any held modifiers on blur so nothing gets stuck
+  Object.keys(mods).forEach(k => {
+    if (mods[k]) {
+      send({ type:'keyup', key: k.replace('Key',''), mods:{} });
+      mods[k] = false;
+    }
+  });
+});
+
+// Prevent browser from stealing shortcuts inside the zone
+zone.addEventListener('contextmenu', e => e.preventDefault());
+
+// ── KEYBOARD ──────────────────────────────────────────────────────────────────
+// keydown and keyup are sent as separate events so held keys work correctly,
+// exactly like Input Director. Modifiers are tracked and sent with each event.
+zone.addEventListener('keydown', e => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  mods.ctrlKey  = e.ctrlKey;
+  mods.shiftKey = e.shiftKey;
+  mods.altKey   = e.altKey;
+  mods.metaKey  = e.metaKey;
+
+  if (!broadcasting) { addLog('Broadcast is OFF', 'warn'); return; }
+
+  send({ type:'keydown', key:e.key, mods:{ ...mods } });
+
+  // Visual feedback
+  clearTimeout(keyFadeTimer);
+  lastKeyEl.textContent = e.key.length > 1 ? e.key : e.key.toUpperCase();
+  lastKeyEl.style.opacity = '1';
+  keyFadeTimer = setTimeout(() => { lastKeyEl.style.opacity = '0.2'; }, 600);
+});
+
+zone.addEventListener('keyup', e => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  mods.ctrlKey  = e.ctrlKey;
+  mods.shiftKey = e.shiftKey;
+  mods.altKey   = e.altKey;
+  mods.metaKey  = e.metaKey;
+
+  if (!broadcasting) return;
+  send({ type:'keyup', key:e.key, mods:{ ...mods } });
+});
+
+// ── MOUSE MOVE ────────────────────────────────────────────────────────────────
+// Throttled to ~60fps. Sends relative position (0–1) so server maps to each window.
+let lastMove = 0;
+zone.addEventListener('mousemove', e => {
+  const now = Date.now();
+  if (now - lastMove < 16) return;
+  lastMove = now;
+
+  const r  = zone.getBoundingClientRect();
+  const tx = (e.clientX - r.left) / r.width;
+  const ty = (e.clientY - r.top)  / r.height;
+
+  // Move cursor dot
+  cursorDot.style.left = `${tx * 100}%`;
+  cursorDot.style.top  = `${ty * 100}%`;
+  mousePosEl.textContent = `${Math.round(tx*100)}% · ${Math.round(ty*100)}%`;
+
+  if (!broadcasting) return;
+  send({ type:'mousemove', tx, ty });
+});
+
+// ── MOUSE DOWN ────────────────────────────────────────────────────────────────
+zone.addEventListener('mousedown', e => {
+  e.preventDefault();
+  zone.focus();
+  if (!broadcasting) return;
+
+  const r   = zone.getBoundingClientRect();
+  const tx  = (e.clientX - r.left) / r.width;
+  const ty  = (e.clientY - r.top)  / r.height;
+  // Map browser button (0=left,1=mid,2=right) to xdotool (1=left,2=mid,3=right)
+  const btn = e.button + 1;
+
+  send({ type:'mousedown', tx, ty, button:btn });
+  spawnRipple(e.clientX - r.left, e.clientY - r.top);
+  addLog(`CLICK btn${btn} @ ${Math.round(tx*100)}%,${Math.round(ty*100)}%`, 'ok');
+});
+
+// ── MOUSE UP ──────────────────────────────────────────────────────────────────
+zone.addEventListener('mouseup', e => {
+  e.preventDefault();
+  if (!broadcasting) return;
+
+  const r   = zone.getBoundingClientRect();
+  const tx  = (e.clientX - r.left) / r.width;
+  const ty  = (e.clientY - r.top)  / r.height;
+  const btn = e.button + 1;
+
+  send({ type:'mouseup', tx, ty, button:btn });
+});
+
+// ── SCROLL ────────────────────────────────────────────────────────────────────
+zone.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (!broadcasting) return;
+
+  const r  = zone.getBoundingClientRect();
+  const tx = (e.clientX - r.left) / r.width;
+  const ty = (e.clientY - r.top)  / r.height;
+  // dy: negative = scroll up, positive = scroll down
+  send({ type:'scroll', tx, ty, dy: Math.sign(e.deltaY) });
+}, { passive:false });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Quick-fire keys (sidebar buttons — work even when zone is unfocused)
+// ═══════════════════════════════════════════════════════════════════════════════
+function fireKey(xkey) {
+  if (!broadcasting) { addLog('Enable broadcast first', 'warn'); return; }
+  // press and release
+  send({ type:'keydown', key:xkey, mods:{} });
+  setTimeout(() => send({ type:'keyup', key:xkey, mods:{} }), 40);
+  clearTimeout(keyFadeTimer);
+  lastKeyEl.textContent = xkey;
+  lastKeyEl.style.opacity = '1';
+  keyFadeTimer = setTimeout(() => { lastKeyEl.style.opacity = '0.2'; }, 500);
+  addLog(`KEY → ${xkey}`, 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Ripple canvas
+// ═══════════════════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('ripple-canvas');
+const ctx    = canvas.getContext('2d');
+let ripples  = [];
+let rafId    = null;
+
+new ResizeObserver(() => {
+  canvas.width  = zone.clientWidth;
+  canvas.height = zone.clientHeight;
+}).observe(zone);
+
+function spawnRipple(x, y) {
+  ripples.push({ x, y, r:0, alpha:0.9 });
+  if (!rafId) rafId = requestAnimationFrame(drawRipples);
+}
+
+function drawRipples() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ripples = ripples.filter(rp => rp.alpha > 0.01);
+  for (const rp of ripples) {
+    ctx.beginPath();
+    ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(57,255,106,${rp.alpha})`;
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+    rp.r     += 4;
+    rp.alpha *= 0.88;
+  }
+  rafId = ripples.length ? requestAnimationFrame(drawRipples) : null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Log
+// ═══════════════════════════════════════════════════════════════════════════════
+function addLog(msg, level='') {
+  const t   = new Date().toTimeString().slice(0,8);
+  const div = document.createElement('div');
+  div.className = `le ${level}`;
+  div.innerHTML = `<span class="t">${t}</span><span class="m">${msg}</span>`;
+  const logEl = document.getElementById('log');
+  logEl.prepend(div);
+  while (logEl.children.length > 60) logEl.removeChild(logEl.lastChild);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Boot
+// ═══════════════════════════════════════════════════════════════════════════════
+connect();
+addLog('8× Command Terminal ready', 'ok');
+</script>
+</body>
+</html>
